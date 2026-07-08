@@ -1,253 +1,160 @@
-# AI Chatbot with Simple RAG and Human Handoff
+# AI Chatbot with RAG and Human Handoff
 
-A chatbot application that answers user questions using a Retrieval-Augmented
-Generation (RAG) pipeline over uploaded PDF documents, with a Human Handoff
-feature that lets a human agent take over any conversation.
+## About the Project
 
-## Architecture
+This project is an AI chatbot that answers questions using information from uploaded PDF documents. Instead of giving general AI responses, it searches the uploaded documents for relevant information and uses that to generate accurate answers. This approach is called Retrieval-Augmented Generation (RAG).
 
-```
-┌─────────────────────┐        ┌──────────────────────┐
-│  Streamlit (8501)    │        │   FastAPI (8000)     │
-│  ─────────────────   │  HTTP  │  ──────────────────  │
-│  • User Chat UI       │───────▶│  /chat               │
-│  • Human Agent Console│        │  /handoff             │
-│  • Admin (KB upload)  │        │  /agent/reply         │
-└─────────────────────┘        │  /ingest, /kb/stats   │
-                                 └──────────┬────────────┘
-                                            │
-                     ┌──────────────────────┼──────────────────────┐
-                     ▼                      ▼                      ▼
-             ┌───────────────┐     ┌────────────────┐     ┌────────────────┐
-             │ RAG Pipeline  │     │  SQLite DB      │     │  Gemini API     │
-             │ (PDF→chunks→  │     │  (conversations,│     │  (embeddings + │
-             │  FAISS index) │     │   messages)     │     │   chat model)  │
-             └───────────────┘     └────────────────┘     └────────────────┘
-```
+If the chatbot is unable to continue the conversation or the user wants personal assistance, the conversation can be handed over to a human agent.
 
-**Technology stack**
-- **Backend / REST API:** FastAPI
-- **User & Agent interfaces:** Streamlit (multi-page app)
-- **LLM & Embeddings:** Google Gemini (`gemini-2.5-flash` for generation, `gemini-embedding-001` for embeddings)
-- **Vector store:** FAISS (file-based, no external service required)
-- **PDF text extraction:** `pypdf` (text only — no OCR/tables/images, per spec)
-- **Conversation storage:** SQLite
-- **Containerization:** Docker / Docker Compose
+---
 
-## How it works
+## What the Project Can Do
 
-1. **Ingestion (Admin page):** PDFs are uploaded → text is extracted → split into
-   overlapping ~800-character chunks → each chunk is embedded via Gemini →
-   embeddings + chunk text/source are stored in a FAISS index on disk.
-2. **Chat (User page):** A user question is embedded, the top-k most similar
-   chunks are retrieved from FAISS, and those chunks are passed as context to
-   the chat model, which generates the final answer.
-3. **Human Handoff:** Clicking "Talk to a human agent" (or calling `/handoff`)
-   flips the conversation's status to `human`. From that point on:
-   - The `/chat` endpoint stores the user's message but **does not** call the
-     RAG pipeline — it returns `responder: "human_pending"` instead.
-   - The Human Agent Console lists all conversations and lets an agent view
-     history and reply; replies are stored with sender `agent` and shown to
-     the user.
-   - An agent (or the system) can call `/handoff/resume` to switch the
-     conversation back to AI mode.
-4. **Conversation storage:** every message (`user` / `ai` / `agent`) and the
-   conversation's current status (`ai` / `human`) are persisted in SQLite, so
-   history survives restarts and is available to both the API and the agent
-   console.
+* Upload PDF documents to build a knowledge base.
+* Answer questions using the uploaded documents.
+* Generate responses with Google Gemini.
+* Transfer conversations to a human agent whenever needed.
+* Save all conversations for future reference.
+* Manage the knowledge base through a simple admin page.
+* Run locally or inside Docker.
+
+---
+
+## Technologies Used
+
+* **FastAPI** for the backend APIs.
+* **Streamlit** for the user interface.
+* **Google Gemini** for text generation and embeddings.
+* **FAISS** to store and search document embeddings.
+* **SQLite** to save conversations.
+* **pypdf** to extract text from PDF files.
+* **Docker** for containerized deployment.
+
+---
+
+## How the Chatbot Works
+
+### Uploading Documents
+
+The admin uploads one or more PDF files through the Admin page. The chatbot extracts the text, breaks it into smaller sections, creates embeddings, and stores them in FAISS. These documents become the chatbot's knowledge base.
+
+### Asking Questions
+
+When a user asks a question, the chatbot searches the uploaded documents for the most relevant information. That information is sent to Gemini along with the user's question, and Gemini generates a response based on the document content.
+
+### Human Handoff
+
+If the user clicks **"Talk to Human Agent"**, the chatbot stops responding and transfers the conversation to a human agent. The agent can view the conversation history and reply directly. Whenever needed, the conversation can be switched back to AI mode.
+
+---
 
 ## Project Structure
 
-```
+```text
 rag-chatbot/
+│
 ├── app/
-│   ├── api/
-│   │   ├── main.py            # FastAPI app & REST endpoints
-│   │   └── schemas.py         # Pydantic request/response models
-│   ├── core/
-│   │   ├── pdf_processor.py   # PDF text extraction + chunking
-│   │   ├── vector_store.py    # FAISS index wrapper
-│   │   ├── llm.py             # Gemini embeddings + chat completion
-│   │   └── rag_pipeline.py    # Ingestion & query orchestration
-│   └── db/
-│       └── database.py        # SQLite conversation/message storage
-├── pages/
-│   ├── 1_Human_Agent.py       # Human agent console (Streamlit page)
-│   └── 2_Admin_Knowledge_Base.py # PDF upload / KB admin (Streamlit page)
-├── streamlit_app.py           # User chat interface (Streamlit home page)
-├── requirements.txt
+│   ├── api/          # FastAPI endpoints
+│   ├── core/         # RAG logic and AI functions
+│   └── db/           # SQLite database
+│
+├── pages/            # Streamlit pages
+├── streamlit_app.py
 ├── Dockerfile
 ├── docker-compose.yml
-├── entrypoint.sh              # Runs FastAPI + Streamlit in one container
-├── .env.example
-└── README.md
+├── requirements.txt
+├── README.md
+└── .env.example
 ```
 
-## Setup & Installation (local, without Docker)
+---
 
-### Prerequisites
-- Python 3.11+
-- A Google Gemini API key (free tier available at https://aistudio.google.com/apikey)
+## Running the Project
 
-### Steps
+### Without Docker
+
+1. Download or clone the project.
+2. Create a virtual environment.
+3. Install the required packages.
 
 ```bash
-# 1. Clone/extract the project and enter it
-cd rag-chatbot
-
-# 2. Create a virtual environment
-python3 -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
-
-# 3. Install dependencies
 pip install -r requirements.txt
+```
 
-# 4. Configure environment variables
-cp .env.example .env
-# then edit .env and set your GEMINI_API_KEY
+4. Create a `.env` file and add your Gemini API key.
 
-# 5. Export the env vars (or use `python-dotenv` / your shell's env loader)
-export GEMINI_API_KEY=your-gemini-key-here
+```env
+GEMINI_API_KEY=your_api_key
+```
 
-# 6. Run the REST API (terminal 1)
-uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+5. Start the FastAPI server.
 
-# 7. Run the Streamlit app (terminal 2)
-export API_BASE_URL=http://localhost:8000
+```bash
+uvicorn app.api.main:app --reload
+```
+
+6. Open another terminal and run the Streamlit application.
+
+```bash
 streamlit run streamlit_app.py
 ```
 
-Then open:
-- **User Chat:** http://localhost:8501
-- **Human Agent Console:** http://localhost:8501/Human_Agent
-- **Admin / Upload PDFs:** http://localhost:8501/Admin_Knowledge_Base
-- **REST API docs (Swagger):** http://localhost:8000/docs
+Open your browser:
 
-> ⚠️ Upload at least one PDF via the Admin page before asking questions —
-> otherwise the bot will tell you no documents are available.
+* User Chat: `http://localhost:8501`
+* Human Agent: `http://localhost:8501/Human_Agent`
+* Admin Page: `http://localhost:8501/Admin_Knowledge_Base`
+* API Documentation: `http://localhost:8000/docs`
+
+---
 
 ## Running with Docker
 
-### Build the image
+Build the image:
 
 ```bash
-docker build -t rag-chatbot:latest .
+docker build -t rag-chatbot .
 ```
 
-### Run the container
+Run the container:
 
 ```bash
-docker run -d \
-  --name rag-chatbot \
-  -p 8000:8000 \
-  -p 8501:8501 \
-  -e GEMINI_API_KEY=your-gemini-key-here \
-  -v chatbot_data:/app/data \
-  rag-chatbot:latest
+docker run -d -p 8000:8000 -p 8501:8501 -e GEMINI_API_KEY=your_api_key rag-chatbot
 ```
 
-### Or use Docker Compose (recommended)
+Or simply use Docker Compose:
 
 ```bash
-# Set your key once
-export GEMINI_API_KEY=your-gemini-key-here
-
-# Build & start
-docker compose up --build -d
-
-# View logs
-docker compose logs -f
-
-# Stop
-docker compose down
+docker compose up --build
 ```
 
-Then open the same URLs as above (http://localhost:8501 and http://localhost:8000/docs).
+---
 
-The `chatbot_data` Docker volume persists the SQLite database and the FAISS
-vector store across container restarts.
+## Available API Endpoints
 
-## Docker Hub
+* **GET /health** – Check if the API is running.
+* **POST /chat** – Send a message to the chatbot.
+* **POST /handoff** – Transfer the conversation to a human agent.
+* **POST /handoff/resume** – Switch the conversation back to AI.
+* **GET /messages/{conversation_id}** – View conversation history.
+* **POST /agent/reply** – Send a reply as a human agent.
+* **POST /ingest** – Upload PDF documents.
+* **GET /kb/stats** – View knowledge base details.
+* **DELETE /kb** – Remove all uploaded documents.
 
-The image is published to Docker Hub as:
+---
 
-```
-docker pull <dockerhub-username>/rag-chatbot:latest
-```
+## Limitations
 
-> Replace `<dockerhub-username>` with the actual Docker Hub account used to
-> publish the image. To publish it yourself:
->
-> ```bash
-> docker build -t <dockerhub-username>/rag-chatbot:latest .
-> docker login
-> docker push <dockerhub-username>/rag-chatbot:latest
-> ```
+* The chatbot can read only text from PDF files.
+* Image-based or scanned PDFs are not supported.
+* All uploaded documents are stored in a single shared knowledge base.
+* User authentication is not included.
+* Human handoff must be started manually.
+* A valid Google Gemini API key is required to use the chatbot.
 
-### Pulling and running the published image
+---
 
-```bash
-docker pull <dockerhub-username>/rag-chatbot:latest
+## Summary
 
-docker run -d \
-  --name rag-chatbot \
-  -p 8000:8000 \
-  -p 8501:8501 \
-  -e GEMINI_API_KEY=your-gemini-key-here \
-  -v chatbot_data:/app/data \
-  <dockerhub-username>/rag-chatbot:latest
-```
-
-## REST API Reference
-
-| Method | Endpoint                    | Description                                              |
-|--------|------------------------------|-----------------------------------------------------------|
-| GET    | `/health`                    | Health check                                              |
-| POST   | `/chat`                      | Send a user message; returns AI answer or human-pending status |
-| POST   | `/handoff`                   | Transfer a conversation to a human agent                  |
-| POST   | `/handoff/resume`             | Switch a conversation back to AI mode                     |
-| GET    | `/status/{conversation_id}`  | Get current status (`ai` / `human`) of a conversation      |
-| GET    | `/messages/{conversation_id}`| Get full message history for a conversation                |
-| GET    | `/conversations`             | List all conversations (used by the agent console)         |
-| POST   | `/agent/reply`               | Human agent sends a reply directly to the user              |
-| POST   | `/ingest`                    | Upload one or more PDF files to add to the knowledge base   |
-| GET    | `/kb/stats`                  | Knowledge base stats (chunk count, indexed source files)   |
-| DELETE | `/kb`                        | Clear the entire knowledge base                             |
-
-Full interactive documentation is available at `/docs` (Swagger UI) once the
-API is running.
-
-## Assumptions & Limitations
-
-- **Text-only PDF extraction:** No OCR, image extraction, or table-structure
-  parsing is performed, per the task scope. Scanned/image-only PDFs will
-  yield little or no extractable text.
-- **Chunking strategy:** A simple fixed-size sliding-window splitter
-  (800 characters, 150-character overlap) is used rather than
-  semantic/sentence-aware chunking, to keep the pipeline dependency-light.
-- **Single shared knowledge base:** All ingested PDFs are combined into one
-  FAISS index; there is no per-user or per-conversation document scoping.
-- **One human agent role:** The Human Agent Console does not implement
-  authentication, multiple agent accounts, or assignment/routing logic —
-  any user of that page can take over and reply to any conversation. This is
-  suitable for the current scope but would need access control before use
-  with real users.
-- **No automatic handoff triggers:** Handoff is manually initiated (by the
-  user clicking "Talk to a human agent" or an agent taking over); there is
-  no automatic escalation (e.g., based on AI confidence or sentiment).
-- **Polling-based updates:** The Streamlit UIs use a lightweight polling
-  refresh (every few seconds) rather than websockets, so there can be a
-  short delay before new messages appear.
-- **Single-process container:** For simplicity, both the FastAPI backend and
-  the Streamlit frontend run in the same container (managed by
-  `entrypoint.sh`). This is convenient for the deliverable but is not the
-  ideal production topology — running them as separate services (as hinted
-  in `docker-compose.yml`, which could be split further) would offer better
-  scalability and fault isolation.
-- **Vector store persistence:** FAISS index and metadata are stored as flat
-  files under `/app/data/vectorstore`; this is fine for small-to-medium
-  document sets but does not scale to very large corpora the way a managed
-  vector database would.
-- **API key required:** A Google Gemini API key must be supplied via the
-  `GEMINI_API_KEY` environment variable; the app will raise a clear error if
-  it's missing when a chat/ingest request is made.
+This project shows how a RAG-based chatbot can provide better answers by using information from uploaded documents instead of relying only on the language model. It also includes a human handoff feature, making it suitable for customer support, document assistance, and knowledge-based applications.
