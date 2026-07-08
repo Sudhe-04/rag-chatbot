@@ -6,7 +6,6 @@ This project is an AI chatbot that answers questions using information from uplo
 
 If the chatbot is unable to continue the conversation or the user wants personal assistance, the conversation can be handed over to a human agent.
 
----
 
 ## What the Project Can Do
 
@@ -18,7 +17,6 @@ If the chatbot is unable to continue the conversation or the user wants personal
 * Manage the knowledge base through a simple admin page.
 * Run locally or inside Docker.
 
----
 
 ## Technologies Used
 
@@ -30,7 +28,6 @@ If the chatbot is unable to continue the conversation or the user wants personal
 * **pypdf** to extract text from PDF files.
 * **Docker** for containerized deployment.
 
----
 
 ## How the Chatbot Works
 
@@ -46,7 +43,6 @@ When a user asks a question, the chatbot searches the uploaded documents for the
 
 If the user clicks **"Talk to Human Agent"**, the chatbot stops responding and transfers the conversation to a human agent. The agent can view the conversation history and reply directly. Whenever needed, the conversation can be switched back to AI mode.
 
----
 
 ## Project Structure
 
@@ -128,7 +124,7 @@ Or simply use Docker Compose:
 docker compose up --build
 ```
 
----
+
 
 ## Available API Endpoints
 
@@ -142,7 +138,6 @@ docker compose up --build
 * **GET /kb/stats** – View knowledge base details.
 * **DELETE /kb** – Remove all uploaded documents.
 
----
 
 ## Limitations
 
