@@ -1,7 +1,6 @@
 # AI Chatbot with RAG and Human Handoff
 
 ## About the Project
-
 This project is an AI chatbot that answers questions using information from uploaded PDF documents. Instead of giving general AI responses, it searches the uploaded documents for relevant information and uses that to generate accurate answers. This approach is called Retrieval-Augmented Generation (RAG).
 
 If the chatbot is unable to continue the conversation or the user wants personal assistance, the conversation can be handed over to a human agent.
