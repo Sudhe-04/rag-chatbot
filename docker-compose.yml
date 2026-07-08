@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  chatbot:
+    build: .
+    image: rag-chatbot:latest
+    ports:
+      - "8000:8000"   # FastAPI REST API (docs at /docs)
+      - "8501:8501"   # Streamlit User Chat + Human Agent Console + Admin (multipage)
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_CHAT_MODEL=${GEMINI_CHAT_MODEL:-gemini-2.5-flash}
+      - GEMINI_EMBEDDING_MODEL=${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      - GEMINI_EMBEDDING_DIM=${GEMINI_EMBEDDING_DIM:-768}
+      - API_BASE_URL=http://localhost:8000
+    volumes:
+      - chatbot_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  chatbot_data:

@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+.env
+data/pdfs/*
+data/vectorstore/*
+!data/pdfs/.gitkeep
+!data/vectorstore/.gitkeep
+*.db
+.DS_Store
