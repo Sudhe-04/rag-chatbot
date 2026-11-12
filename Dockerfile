@@ -21,7 +21,7 @@ ENV PYTHONUNBUFFERED=1 \
     VECTORSTORE_DIR=/app/data/vectorstore \
     GEMINI_EMBEDDING_DIM=768
 
-EXPOSE 8000 8501
+EXPOSE 8000 10000
 
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
