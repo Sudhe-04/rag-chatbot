@@ -9,7 +9,7 @@ sleep 3
 
 echo "Starting Streamlit user interface on port 8501..."
 streamlit run streamlit_app.py \
-    --server.port 8501 \
+    --server.port "${PORT:-8501}" \
     --server.address 0.0.0.0 \
     --server.headless true
 
